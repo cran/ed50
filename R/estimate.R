@@ -6,6 +6,8 @@
 #' @param method The method used to estimate ED50, there are five methods here, respectively
 #' Dixon-Mood, Choi (Choi's Original Turning Point), ModTurPoint (Modified Turning Point),
 #' Logistic (Logistic Regression) and Isotonic (Isotonic Regression). The defaut is Dixon-Mood.
+#' @param tpCiScale The scale level to enlarge the confidence interval estimated by Modified
+#' Turning Point Method. The default value is \code{2.4/qnorm(0.975)}.
 #' @param boot.n The number of boot process if Logistic method is chosen to estimate ED50.
 #' @import stats
 #' @import boot
@@ -29,6 +31,7 @@ estimate <- function(doseSequence,
                       doseResponse,
                       confidence = .95,
                       method = c('Dixon-Mood', 'Choi', 'ModTurPoint', 'Logistic', 'Isotonic'),
+                      tpCiScale = 2.4/qnorm(0.975),
                       boot.n = 10000)
 {
    # First check out the type of data input
@@ -124,7 +127,7 @@ estimate <- function(doseSequence,
     }
     if(ratio > 1.6 & ratio <= 5 & !(m %in% tmp4))
     {
-      mode <- loess(formula = G2 ~ Ratio, data = gTableOrigin[gTableOrigin$Ratio > 1.6, ])
+      mode <- loess(formula = G2 ~ Ratio, data = gTableOrigin[gTableOrigin$Ratio >= 1.6, ])
       G <- as.vector(predict(mode, newdata = data.frame(Ratio = ratio)))
     }
     sm <- G * s / sqrt(N)
@@ -163,10 +166,9 @@ estimate <- function(doseSequence,
     nW <- length(doseW)
 
     # Calculate ED50 estimate
-    if(nW == 1)
+    if(nW < 3)
     {
-      cat('ED50 estimate:', doseW, '\n')
-      return(message('Additional message: There is only one turning point!'))
+      return(warning(paste('There are only a few turning points:', doseW)))
     }
     meanW <- mean(doseW[-1])
 
@@ -187,23 +189,25 @@ estimate <- function(doseSequence,
       (b - rho * c) * (1 - rho^2) - rho * (a - 2 * rho * b + (1 + rho^2) * c) / (nW - 1)
     }
     rhoHat <- tryCatch(uniroot(rhoHatFunc,
-                               interval = c(10^(-5), 1-10^(-5)),
+                               interval = c(-1+10^(-5), 1-10^(-5)),
                                tol = 1e-9)$root, error = function(e) 'error')
     if(rhoHat == 'error') return(warning('Problem occured in solving the equations!\nMaybe the number of turning points is not enough.'))
-    sigHat <- ((a - 2 * rhoHat * b + (1 + rhoHat^  2) * c) / (nW - 1))^(0.5)
+    rhoHat <- max(abs(rhoHat))
+    sigHat2 <- (a - 2 * rhoHat * b + (1 + rhoHat^ 2) * c) / (nW - 1)
 
     # Compute standard error of ED50 estimate
     i <- 1:(nW - 2)
-    sd <- ((sigHat^2 / ((nW - 1) * (1 - rhoHat^2))) *
+    sd <- ((sigHat2 / ((nW - 1) * (1 - rhoHat^2))) *
              (1 + sum((2 * (nW - i - 1) * rhoHat^i) / (nW - 1))))^(0.5)
 
     # Summarise ED50 estimate and its confidence interval
-    zAlpha <- qnorm(0.5 + confidence / 2)
+    zAlpha <- qnorm(0.5 + 0.5 * confidence) * tpCiScale
     lb <- meanW - zAlpha * sd
     ub <- meanW + zAlpha * sd
     ans <- list('Method of Estimation'= ifelse(method == 'ModTurPoint',
                                                'Modified Turning Point',
                                                "Choi's Original Turning Point"),
+                'Number of turning points' = nW,
                 'Estimate of ED50' = meanW,
                 'Standard Error of Estimate' = sd,
                 'Confidence Level' = paste0(100 * confidence, '%'),

@@ -4,12 +4,15 @@
 \alias{generateData}
 \title{Generate Simulation Data of Up-and-Down Experiment}
 \usage{
-generateData(number, start, doseStep = 1, distribution = c("Normal",
-  "Triangle", "Chi-square"), normalMean = 0, normalStd = 1, triMean = 0,
-  triWidth = 2, chiDegree = 1)
+generateData(number, useTurPoint = FALSE, start, doseStep = 1,
+  distribution = c("Normal", "Triangle", "Chi-square"), normalMean = 0,
+  normalStd = 1, triMean = 0, triWidth = 2, chiDegree = 1)
 }
 \arguments{
 \item{number}{The number of experiments in a trail.}
+
+\item{useTurPoint}{A logical value indicating whether the parameter \code{number} refers to the
+amount of turning points. The default value is \code{FALSE}.}
 
 \item{start}{The first dose level given in this trail.}
 

@@ -3,6 +3,8 @@
 #' experiment, and provide three cases that tolerance distribution obeys normal,
 #' triangle or chi-square distribution.
 #' @param number The number of experiments in a trail.
+#' @param useTurPoint A logical value indicating whether the parameter \code{number} refers to the
+#' amount of turning points. The default value is \code{FALSE}.
 #' @param start The first dose level given in this trail.
 #' @param doseStep A fix value  that represents the difference between two adjacent dose levels.
 #' @param distribution The tolerance distribution, including normal, triangle and chi-square
@@ -13,6 +15,7 @@
 #' @param triWidth Parameter width of triangle distribution, the default value is 2.
 #' @param chiDegree Parameter degree of freedom of chi-square distribution, the default value is 1.
 #' @import stats
+#' @import utils
 #' @export
 #' @return A data frame.
 #' @examples
@@ -21,6 +24,7 @@
 #' generateData(number = 40, start = 2, doseStep = 0.2, distribution = 'Chi-square')
 
 generateData <- function(number,
+                         useTurPoint = FALSE,
                          start,
                          doseStep = 1,
                          distribution = c('Normal', 'Triangle', 'Chi-square'),
@@ -30,11 +34,6 @@ generateData <- function(number,
                          triWidth = 2,
                          chiDegree = 1)
 {
-  # Init dose sequence value and dose response label
-  doseSequence <- NULL
-  doseResponse <- NULL
-  dose         <- start
-
   # Get the selected distribution
   distribution <- tryCatch(match.arg(distribution), error = function(e) 'error')
   if(distribution == 'error')
@@ -42,45 +41,58 @@ generateData <- function(number,
     return(warning('The distribution should be one of "Normal", "Triangle", "Chi-square"!'))
   }
 
-  # Generate tolerance data here
-  if(distribution == 'Normal')
-  {
-    tolerance <- rnorm(number, normalMean, normalStd)
-  }
+  # Init dose sequence value and dose response label
+  doseSequence <- NULL
+  doseResponse <- NULL
+  dose         <- start
+  numTurPoint  <- 0
+  numDose      <- 0
 
-  if(distribution == 'Triangle')
-  {
-    tolerance <- NULL
-    for (i in seq_len(number))
+  repeat({
+    # Generate tolerance data
+    if(distribution == "Normal")
+    {
+      tolerance <- rnorm(1, normalMean, normalStd)
+    }
+    if(distribution == "Triangle")
     {
       u <- runif(1)
       if(u <= 0.5)
       {
-        tolerance[i] <- triMean - (0.5 - sqrt(0.5 * u)) * triWidth
+        tolerance <- triMean - (0.5 - sqrt(0.5 * u)) * triWidth
       } else {
-        tolerance[i] <- triMean + (0.5 - sqrt(0.5 * (1-u))) * triWidth
+        tolerance <- triMean + (0.5 - sqrt(0.5 * (1-u))) * triWidth
       }
     }
-  }
-
-  if(distribution == 'Chi-square')
-  {
-    tolerance <- rchisq(number, chiDegree)
-  }
-
-  # Generate dose data and response here
-  for (i in seq_len(number))
-  {
-    doseSequence[i] <- dose
-    if(dose <= tolerance[i])
+    if(distribution == "Chi-square")
     {
-      doseResponse[i] <- 0
-      dose <- dose + doseStep
-    } else {
-      doseResponse[i] <- 1
-      dose <- dose - doseStep
+      tolerance <- rchisq(1, chiDegree)
     }
-  }
+
+    # Genarate dose and response data
+    doseSequence <- c(doseSequence, dose)
+    if(dose < tolerance)
+    {
+      dose <- dose + doseStep
+      doseResponse <- c(doseResponse, 0)
+    } else {
+      dose <- dose - doseStep
+      doseResponse <- c(doseResponse, 1)
+    }
+
+    # Set the condition to stop the function
+    if(useTurPoint)
+    {
+      if(length(unique(tail(doseResponse, 2))) == 2)
+      {
+        numTurPoint <- numTurPoint + 1
+      }
+      if(numTurPoint == number) break
+    } else {
+      numDose <- numDose + 1
+      if(numDose == number) break
+    }
+  })
 
   return(data.frame(doseSequence = round(doseSequence, 2),
                     doseResponse = doseResponse))

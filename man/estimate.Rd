@@ -5,8 +5,8 @@
 \title{Estimate ED50}
 \usage{
 estimate(doseSequence, doseResponse, confidence = 0.95,
-  method = c("Dixon-Mood", "Choi", "ModTurPoint", "Logistic", "Isotonic"),
-  boot.n = 10000)
+  method = c("Dixon-Mood", "Choi", "ModTurPoint", "Logistic",
+  "Isotonic"), tpCiScale = 2.4/qnorm(0.975), boot.n = 10000)
 }
 \arguments{
 \item{doseSequence}{A sequence of doses given in order}
@@ -18,6 +18,9 @@ estimate(doseSequence, doseResponse, confidence = 0.95,
 \item{method}{The method used to estimate ED50, there are five methods here, respectively
 Dixon-Mood, Choi (Choi's Original Turning Point), ModTurPoint (Modified Turning Point),
 Logistic (Logistic Regression) and Isotonic (Isotonic Regression). The defaut is Dixon-Mood.}
+
+\item{tpCiScale}{The scale level to enlarge the confidence interval estimated by Modified
+Turning Point Method. The default value is \code{2.4/qnorm(0.975)}.}
 
 \item{boot.n}{The number of boot process if Logistic method is chosen to estimate ED50.}
 }
